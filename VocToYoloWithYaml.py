@@ -3,6 +3,8 @@ import yaml
 from pathlib import Path
 import argparse
 import shutil
+from tqdm import tqdm
+from sklearn.model_selection import train_test_split
 
 def convert(size, box):
     dw = 1./size[0]
@@ -45,26 +47,25 @@ def main(dataset_path, output_path, train_val_split):
     output_path = Path(output_path)
     
     # Create necessary directories
-    (output_path/'labels'/'train').mkdir(parents=True, exist_ok=True)
-    (output_path/'labels'/'val').mkdir(parents=True, exist_ok=True)
-    (output_path/'images'/'train').mkdir(parents=True, exist_ok=True)
-    (output_path/'images'/'val').mkdir(parents=True, exist_ok=True)
+    (output_path/'train'/'labels').mkdir(parents=True, exist_ok=True)
+    (output_path/'train'/'images').mkdir(parents=True, exist_ok=True)
+    (output_path/'val'/'labels').mkdir(parents=True, exist_ok=True)
+    (output_path/'val'/'images').mkdir(parents=True, exist_ok=True)
 
     image_files = list((dataset_path/'JPEGImages').glob('*.jpg'))
     
     # Split data into train and validation sets
-    train_files = image_files[:int(len(image_files)*train_val_split)]
-    val_files   = image_files[int(len(image_files)*train_val_split):]
+    train_files, val_files = train_test_split(image_files, test_size=1-train_val_split)
 
     # Process training files
-    for image_path in train_files:
-        shutil.copy(image_path, output_path/'images'/'train'/image_path.name) 
-        convert_voc_to_yolo(dataset_path/'Annotations'/f'{image_path.stem}.xml', output_path/'labels'/'train', classes_names)
+    for image_path in tqdm(train_files, desc="Processing training files"):
+        shutil.copy(image_path, output_path/'train'/'images'/image_path.name) 
+        convert_voc_to_yolo(dataset_path/'Annotations'/f'{image_path.stem}.xml', output_path/'train'/'labels', classes_names)
 
     # Process validation files
-    for image_path in val_files:
-        shutil.copy(image_path, output_path/'images'/'val'/image_path.name) 
-        convert_voc_to_yolo(dataset_path/'Annotations'/f'{image_path.stem}.xml', output_path/'labels'/'val', classes_names)
+    for image_path in tqdm(val_files, desc="Processing validation files"):
+        shutil.copy(image_path, output_path/'val'/'images'/image_path.name) 
+        convert_voc_to_yolo(dataset_path/'Annotations'/f'{image_path.stem}.xml', output_path/'val'/'labels', classes_names)
 
     # Generate data.yaml file
     data_dict ={
